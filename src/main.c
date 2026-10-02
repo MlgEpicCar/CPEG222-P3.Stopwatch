@@ -10,6 +10,7 @@
 ****************************************************************/
 
 #include "stm32f4xx.h"
+#include "ssd.h"
 #include <stdbool.h>
 
 /* State Definitions*/
@@ -55,11 +56,15 @@ int main(void)
     BUTTON_PORT_E_RD->MODER &= ~((3U << (RIGHT_PIN * 2))|
                                  (3U << (DOWN_PIN * 2)));
     
+    SSD_Init();
+
     while (1) {
 
     // PAUSED STATE
         while (state == PAUSE)
         {
+            SSD_DisplayValue(1234);
+            
             // State Switcher
             if (!(GPIOF->IDR & (1U << UP_PIN)))
                 state = INCREASE;
