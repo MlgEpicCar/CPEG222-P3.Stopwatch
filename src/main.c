@@ -2,36 +2,32 @@
 * Author: Carlos Munar (MlgEpicCar)
 * Project 3 - Stopwatch, 10/1/26
 *
-* 
+* This program activates when a directional button is pressed.
+* if Up is pressed then the SSD will count upwards until 99.99
+* if Down is pressed then the SSD will count downwards until 0.00
+* if Left is pressed then the SSD will flip instantly to 0.00
+* if Right is pressed then the SSD will flip instantly to 99.99
 ****************************************************************/
 
 #include "stm32f4xx.h"
 #include <stdbool.h>
 
-#define VPOT_PIN 2
-
 /* State Definitions*/
-#define SHIFT_LEFT  -1
-#define PAUSE        0
-#define SHIFT_RIGHT  1
+#define DECREASE -1
+#define PAUSE     0
+#define INCREASE  1
 
 /* Button Definitions */
-#define LEFT_PIN 9 // GPIOF
-#define RIGHT_PIN 6 // NOTE: Right uses GPIOE (for some fucking reason)
-#define CENTER_PIN 8 // also GPIOF
-    
-/* Switch Definitions */
-#define S1 8
-#define S2 9
-#define S3 10
-#define S4 11
-#define SWITCH_PORT GPIOC
+#define BUTTON_PORT_F_LCU GPIOF // Port for Left, Center, & Up Buttons
+#define BUTTON_PORT_E_RD GPIOE // Port for Right & Down Buttons
 
-/* Unlike the NUCLEO-F446ZE onboard LEDs, the CPEG222 Shield LEDs are PD0-7 (making it easy)*/
-#define LED_PORT GPIOD
+#define UP_PIN     7
+#define DOWN_PIN   5
+#define LEFT_PIN   9
+#define RIGHT_PIN  6
+#define CENTER_PIN 8
 
 volatile int state = PAUSE;
-uint8_t led_pattern = 0;
 
 uint16_t read_pot(void) {
     /* Start conversion */
@@ -44,24 +40,6 @@ uint16_t read_pot(void) {
     return ADC1->DR;
 }
 
-void delay_ms(uint32_t ms)
-{
-    while (ms--)
-    {
-        for (volatile uint32_t i = 0; i < 16000; i++)
-        {
-            if (!(GPIOF->IDR & (1U << LEFT_PIN)))
-                state = SHIFT_LEFT;
-            if (!(GPIOF->IDR & (1U << CENTER_PIN))) {
-                led_pattern = 0;
-                state = PAUSE;
-            }
-            if (!(GPIOE->IDR & (1U << RIGHT_PIN)))
-                state = SHIFT_RIGHT;
-        }
-    }
-}
-
 int main(void)
 {
     /* Enable clock for GPIOC, GPIOD, GPIOE, and GPIOF */
@@ -70,141 +48,44 @@ int main(void)
                      RCC_AHB1ENR_GPIOEEN|
                      RCC_AHB1ENR_GPIOFEN;
 
-    /* Clear PD0-7 so we can set them to general purpose output */
-    LED_PORT->MODER &= ~((3U << (0 * 2)) |
-                        (3U << (1 * 2)) |
-                        (3U << (2 * 2)) |
-                        (3U << (3 * 2)) |
-                        (3U << (4 * 2)) |
-                        (3U << (5 * 2)) |
-                        (3U << (6 * 2)) |
-                        (3U << (7 * 2)));
-    /* Set PD0-7 as general purpose output (01) */
-    LED_PORT->MODER |= (1U << (0 * 2))|
-                    (1U << (1 * 2))|
-                    (1U << (2 * 2))|
-                    (1U << (3 * 2))|
-                    (1U << (4 * 2))|
-                    (1U << (5 * 2))|
-                    (1U << (6 * 2))|
-                    (1U << (7 * 2));
-
-    /* Ensure all LEDs start off */
-    LED_PORT->BSRR = (1U << (0 + 16))|
-                  (1U << (1 + 16))|
-                  (1U << (2 + 16))|
-                  (1U << (3 + 16))|
-                  (1U << (4 + 16))|
-                  (1U << (5 + 16))|
-                  (1U << (6 + 16))|
-                  (1U << (7 + 16));
-
     /* Configure Buttons */
-    GPIOF->MODER &= ~((3U << (LEFT_PIN * 2))|
-                     (3U << (CENTER_PIN * 2)));  
-    GPIOE->MODER &= ~(3U << (RIGHT_PIN * 2)); // RIGHT uses it's own GPIO port 
-
-    /* Configure Switches */
-    SWITCH_PORT->MODER &= ~((3U << (S1 * 2))|
-                     (3U << (S2 * 2))|
-                     (3U << (S3 * 2))|
-                     (3U << (S4 * 2))); 
-    
-    /* Configure PC2 as analog input */
-    GPIOC->MODER |= (3U << (VPOT_PIN * 2));
-
-    /* Analog to Digital Converter Shenanigans */
-    /* Enable ADC1 clock */
-    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-    /* ADC channel 12 */
-    ADC1->SQR3 = 12;
-    /* One conversion */
-    ADC1->SQR1 = 0;
-    /* Enable ADC */
-    ADC1->CR2 |= ADC_CR2_ADON;
-
-    //volatile int state = PAUSE;
-    //uint8_t led_pattern = 0;
+    BUTTON_PORT_F_LCU->MODER &= ~((3U << (LEFT_PIN * 2))|
+                                (3U << (CENTER_PIN * 2))|
+                                   (3U << (UP_PIN * 2)));  
+    BUTTON_PORT_E_RD->MODER &= ~((3U << (RIGHT_PIN * 2))|
+                                 (3U << (DOWN_PIN * 2)));
     
     while (1) {
 
+    // PAUSED STATE
         while (state == PAUSE)
         {
-            // Turn on/off LEDs when switches are #switched
-            if (SWITCH_PORT->IDR & (1U << S1))
-                led_pattern |= (1U << 0);
-            else
-                led_pattern &= ~(1U << 0);
-
-            if (SWITCH_PORT->IDR & (1U << S2))
-                led_pattern |= (1U << 1);
-            else
-                led_pattern &= ~(1U << 1);
-
-            if (SWITCH_PORT->IDR & (1U << S3))
-                led_pattern |= (1U << 2);
-            else
-                led_pattern &= ~(1U << 2);
-
-            if (SWITCH_PORT->IDR & (1U << S4))
-                led_pattern |= (1U << 3);
-            else
-                led_pattern &= ~(1U << 3);
-
-            // Display the pattern
-            LED_PORT->ODR = led_pattern;
-
-            // Trigger Left/Right Movement when a directional button is pressed 
-            if (!(GPIOF->IDR & (1U << LEFT_PIN)))
-                state = SHIFT_LEFT;
-            else if (!(GPIOE->IDR & (1U << RIGHT_PIN)))
-                state = SHIFT_RIGHT;
+            // State Switcher
+            if (!(GPIOF->IDR & (1U << UP_PIN)))
+                state = INCREASE;
+            else if (!(GPIOE->IDR & (1U << DOWN_PIN)))
+                state = DECREASE;
         }
 
-        while (state == SHIFT_LEFT) {
+    // INCREASING STATE
+        while (state == INCREASE) {
+
+            // State Switcher
             if (!(GPIOF->IDR & (1U << CENTER_PIN))) {
-                led_pattern = 0;
                 state = PAUSE;
             }
-            if (!(GPIOE->IDR & (1U << RIGHT_PIN)))
-                state = SHIFT_RIGHT;
-
-            // memorize leftmost bit and place it on the right
-            uint8_t left_bit = led_pattern & 0x80;
-            led_pattern <<= 1;
-            if (left_bit)
-            {
-                led_pattern |= 0x01;
-            }
-            LED_PORT->ODR = led_pattern;
-
-            // speed limit
-            uint16_t pot_val = read_pot(); // 0–4095
-            uint32_t delay = 1 + (pot_val * 149) / 4095; // maps to ~1–150 ms
-            delay_ms(delay);
+            if (!(GPIOE->IDR & (1U << DOWN_PIN)))
+                state = DECREASE;
         }
 
-        while (state == SHIFT_RIGHT) {
+    // DECREASING STATE
+        while (state == DECREASE) {
+            // State Switcher
             if (!(GPIOF->IDR & (1U << CENTER_PIN))) {
-                led_pattern = 0;
                 state = PAUSE;
             }
-            if (!(GPIOF->IDR & (1U << LEFT_PIN)))
-                state = SHIFT_LEFT;
-
-            // memorize rightmost bit and place it on the left
-            uint8_t right_bit = led_pattern & 0x01;
-            led_pattern >>= 1;
-            if (right_bit)
-            {
-                led_pattern |= 0x80;
-            }
-            LED_PORT->ODR = led_pattern;
-            
-            // speed limit
-            uint16_t pot_val = read_pot(); // 0–4095
-            uint32_t delay = 1 + (pot_val * 149) / 4095; // maps to ~1–150 ms
-            delay_ms(delay);
+            if (!(GPIOF->IDR & (1U << UP_PIN)))
+                state = INCREASE;
         }
     }
 }
