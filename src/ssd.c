@@ -19,6 +19,7 @@
 #define PIN_DIGIT3 3 // Port B
 
 static const uint8_t digitSegments[11] = {
+    //ABCDEFG
     0b1000000, // 0
     0b1111001, // 1
     0b0100100, // 2
@@ -78,8 +79,6 @@ static void SSD_SetSegments(uint8_t pattern)
         GPIOB->BSRR = (1U << PIN_G);
     else
         GPIOB->BSRR = (1U << (PIN_G + 16));
-
-    GPIOF->BSRR = (1U << PIN_DecimalPoint);
 }
 
 static void SSD_DisableDigits(void)
@@ -151,19 +150,16 @@ void SSD_DisplayValue(uint16_t value)
 
 void SSD_Refresh(void)
 {
-    // 1. Disable all digits.
+    // Disable all digits
     SSD_DisableDigits();
 
-    // 2. Set the segments for the current digit.
+    // Set the segments for the current digit
     SSD_SetSegments(digitSegments[digits[current_digit]]);
 
-    // 3. Set decimal point for 00.00.
-    if (current_digit == 1)
-        GPIOF->BSRR = (1U << (PIN_DecimalPoint + 16));
-    else
-        GPIOF->BSRR = (1U << PIN_DecimalPoint);
+    // Turns off Decimal
+    GPIOF->BSRR = (1U << PIN_DecimalPoint);
 
-    // 4. Enable the selected digit.
+    // Enable the selected digit.
     switch (current_digit)
     {
         case 0:
@@ -171,6 +167,7 @@ void SSD_Refresh(void)
             break;
         case 1:
             GPIOE->BSRR = (1U << (PIN_DIGIT1 + 16));
+            GPIOF->BSRR = (1U << (PIN_DecimalPoint + 16));
             break;
         case 2:
             GPIOB->BSRR = (1U << (PIN_DIGIT2 + 16));
@@ -180,6 +177,5 @@ void SSD_Refresh(void)
             break;
     }
 
-    // 5. Move to the next digit.
     current_digit = (current_digit + 1) % 4;
 }

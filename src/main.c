@@ -1,6 +1,6 @@
 /****************************************************************
 * Author: Carlos Munar (MlgEpicCar)
-* Project 3 - Stopwatch, 10/1/26
+* Project 3 - Stopwatch, 10/2/26
 *
 * This program activates when a directional button is pressed.
 * if Up is pressed then the SSD will count upwards until 99.99
@@ -29,8 +29,8 @@
 #define RIGHT_PIN  6
 #define CENTER_PIN 8
 
-volatile int state = PAUSE;
-volatile uint32_t milliseconds = 0;
+int state = PAUSE;
+uint32_t milliseconds = 0;
 uint32_t last_update = 0;
 
 void SysTick_Handler(void)
@@ -73,6 +73,16 @@ int main(void)
                 state = INCREASE;
             else if (!(GPIOE->IDR & (1U << DOWN_PIN)))
                 state = DECREASE;
+
+            // Left & Right Buttons
+            if (!(BUTTON_PORT_F_LCU->IDR & (1U << LEFT_PIN))) {
+                current_number = 0;
+                state = PAUSE;
+            }
+            if (!(BUTTON_PORT_E_RD->IDR & (1U << RIGHT_PIN))) {
+                current_number = 9999;
+                state = PAUSE;
+            }
         }
 
     // INCREASING STATE
@@ -93,6 +103,16 @@ int main(void)
             }
             if (!(GPIOE->IDR & (1U << DOWN_PIN)))
                 state = DECREASE;
+
+            // Left & Right Buttons
+            if (!(BUTTON_PORT_F_LCU->IDR & (1U << LEFT_PIN))) {
+                current_number = 0;
+                state = PAUSE;
+            }
+            if (!(BUTTON_PORT_E_RD->IDR & (1U << RIGHT_PIN))) {
+                current_number = 9999;
+                state = PAUSE;
+            }
         }
 
     // DECREASING STATE
@@ -113,6 +133,16 @@ int main(void)
             }
             if (!(GPIOF->IDR & (1U << UP_PIN)))
                 state = INCREASE;
+
+            // Left & Right Buttons
+            if (!(BUTTON_PORT_F_LCU->IDR & (1U << LEFT_PIN))) {
+                current_number = 0;
+                state = PAUSE;
+            }
+            if (!(BUTTON_PORT_E_RD->IDR & (1U << RIGHT_PIN))) {
+                current_number = 9999;
+                state = PAUSE;
+            }
         }
     }
 }
