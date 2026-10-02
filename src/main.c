@@ -11,6 +11,7 @@
 
 #include "stm32f4xx.h"
 #include "ssd.h"
+#include "ssd_timer.h"
 #include <stdbool.h>
 
 /* State Definitions*/
@@ -29,16 +30,12 @@
 #define CENTER_PIN 8
 
 volatile int state = PAUSE;
+volatile uint32_t milliseconds = 0;
+uint32_t last_update = 0;
 
-uint16_t read_pot(void) {
-    /* Start conversion */
-    ADC1->CR2 |= ADC_CR2_SWSTART;
-
-    /* Wait until conversion is complete */
-    while (!(ADC1->SR & ADC_SR_EOC));
-
-    /* Return 12-bit ADC result */
-    return ADC1->DR;
+void SysTick_Handler(void)
+{
+    milliseconds++;
 }
 
 int main(void)
@@ -57,13 +54,19 @@ int main(void)
                                  (3U << (DOWN_PIN * 2)));
     
     SSD_Init();
+    int current_number = 0;
+    SysTick_Config(SystemCoreClock / 1000);
+    SSD_Timer_Init();
 
     while (1) {
 
     // PAUSED STATE
         while (state == PAUSE)
         {
-            SSD_DisplayValue(1234);
+            if ((uint32_t)(milliseconds - last_update) >= 10) {
+                last_update += 10;
+                SSD_DisplayValue(current_number);
+            }
             
             // State Switcher
             if (!(GPIOF->IDR & (1U << UP_PIN)))
@@ -74,6 +77,15 @@ int main(void)
 
     // INCREASING STATE
         while (state == INCREASE) {
+            if ((uint32_t)(milliseconds - last_update) >= 10) {
+                last_update += 10;
+
+                if (current_number < 9999) {
+                    current_number++;
+                }
+
+                SSD_DisplayValue(current_number);
+            }
 
             // State Switcher
             if (!(GPIOF->IDR & (1U << CENTER_PIN))) {
@@ -85,6 +97,16 @@ int main(void)
 
     // DECREASING STATE
         while (state == DECREASE) {
+            if ((uint32_t)(milliseconds - last_update) >= 10) {
+                last_update += 10;
+
+                if (current_number > 0) {
+                    current_number--;
+                }
+
+                SSD_DisplayValue(current_number);
+            }
+
             // State Switcher
             if (!(GPIOF->IDR & (1U << CENTER_PIN))) {
                 state = PAUSE;
